@@ -8451,8 +8451,7 @@ async function loadUrl(url, pushHistory = true) {
 		await ensureTransport();
 		var frame = ensureTabFrame(tab.id);
 		showFrameForTab(tab.id);
-		var proxiedUrl = toScramjetProxyUrl(url);
-		if (!proxiedUrl) throw new Error("Invalid Scramjet target URL.");
+		if (!String(url || "").trim()) throw new Error("Invalid Scramjet target URL.");
 		var pendingTimeout = frameLoadTimeoutIdByTab.get(tab.id);
 		if (pendingTimeout) clearTimeout(pendingTimeout);
 		frameLoadTimeoutIdByTab.set(
@@ -8464,7 +8463,7 @@ async function loadUrl(url, pushHistory = true) {
 		);
 		await new Promise((resolve) => setTimeout(resolve, 2000));
 		suppressNextFrameNavSyncByTab.add(tab.id);
-		frame.element.src = proxiedUrl;
+		frame.go(url);
 		hideBlank();
 		addHistory(url);
 	} catch (err) {
