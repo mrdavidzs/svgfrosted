@@ -1,6 +1,12 @@
-importScripts('uv.bundle.js?v=6');
-importScripts('uv.config.js?v=6');
-importScripts(__uv$config.sw || 'uv.sw.js?v=6');
+if (!self.Ultraviolet) {
+    importScripts('uv.bundle.js?v=6');
+}
+if (!self.__uv$config) {
+    importScripts('uv.config.js?v=6');
+}
+if (!self.UVServiceWorker) {
+    importScripts(__uv$config.sw || 'uv.sw.js?v=6');
+}
 
 const uvServiceWorker = self.__frostedUvServiceWorker || new self.UVServiceWorker();
 self.__frostedUvServiceWorker = uvServiceWorker;

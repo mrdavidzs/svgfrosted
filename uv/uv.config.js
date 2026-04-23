@@ -11,15 +11,15 @@
           );
 
     self.__uv$config = {
-        prefix: uvPfx + "service/",
+        prefix: loc + uvPfx + "service/",
         encodeUrl: Ultraviolet.codec.xor.encode,
         decodeUrl: Ultraviolet.codec.xor.decode,
-        handler: loc + uvPfx + "uv.handler.js?v=4",
-        client: loc + uvPfx + "uv.client.js?v=4",
-        bundle: loc + uvPfx + "uv.bundle.js?v=4",
-        config: loc + uvPfx + "uv.config.js?v=4",
-        sw: loc + uvPfx + "uv.sw.js?v=4",
-        stockSW: loc + uvPfx + "sw.js?v=4",
+        handler: loc + uvPfx + "uv.handler.js?v=6",
+        client: loc + uvPfx + "uv.client.js?v=6",
+        bundle: loc + uvPfx + "uv.bundle.js?v=6",
+        config: loc + uvPfx + "uv.config.js?v=6",
+        sw: loc + uvPfx + "uv.sw.js?v=6",
+        stockSW: loc + uvPfx + "sw.js?v=6",
         loc: loc,
     };
 })();
