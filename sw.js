@@ -137,6 +137,30 @@ function getDefaultScramjetConfig() {
 	};
 }
 
+function getPersistableScramjetConfig(config) {
+	return {
+		prefix: config.prefix,
+		globals: { ...(config.globals || {}) },
+		files: { ...(config.files || {}) },
+		flags: { ...(config.flags || {}) },
+		siteFlags: { ...(config.siteFlags || {}) },
+	};
+}
+
+function normalizeScramjetConfig(config) {
+	const defaults = getDefaultScramjetConfig();
+	const candidate = config && typeof config === "object" ? config : {};
+	return {
+		...defaults,
+		...candidate,
+		globals: { ...defaults.globals, ...(candidate.globals || {}) },
+		files: { ...defaults.files, ...(candidate.files || {}) },
+		flags: { ...defaults.flags, ...(candidate.flags || {}) },
+		siteFlags: { ...defaults.siteFlags, ...(candidate.siteFlags || {}) },
+		codec: defaults.codec,
+	};
+}
+
 function isUvRequest(requestUrl) {
 	try {
 		var url = new URL(requestUrl);
@@ -150,6 +174,15 @@ function isScramjetRequest(requestUrl) {
 	try {
 		var url = new URL(requestUrl);
 		return url.origin === location.origin && url.pathname.startsWith(getScramjetPrefixPath());
+	} catch {
+		return false;
+	}
+}
+
+function isScramjetWasmRequest(requestUrl) {
+	try {
+		var url = new URL(requestUrl);
+		return url.origin === location.origin && url.pathname === getDefaultScramjetConfig().files.wasm;
 	} catch {
 		return false;
 	}
@@ -222,14 +255,14 @@ async function loadScramjetConfigWithRecovery() {
 		await deleteIndexedDb("$scramjet");
 		await scramjet.loadConfig();
 	}
+	scramjet.config = normalizeScramjetConfig(scramjet.config);
 	if (!scramjet.config?.prefix) {
-		const fallbackConfig = getDefaultScramjetConfig();
-		await persistScramjetConfig(fallbackConfig);
-		scramjet.config = undefined;
-		await scramjet.loadConfig();
-		if (!scramjet.config?.prefix) {
-			scramjet.config = fallbackConfig;
-		}
+		scramjet.config = getDefaultScramjetConfig();
+	}
+	try {
+		await persistScramjetConfig(getPersistableScramjetConfig(scramjet.config));
+	} catch (error) {
+		console.warn("[frosted-sw] failed to persist normalized scramjet config:", error);
 	}
 }
 
@@ -249,7 +282,7 @@ async function handleRequest(event) {
 		return uv.fetch(event);
 	}
 
-	if (isScramjetRequest(event.request.url)) {
+	if (isScramjetRequest(event.request.url) || isScramjetWasmRequest(event.request.url)) {
 		try {
 			await loadScramjetConfigWithRecovery();
 			if (scramjet.route(event)) {

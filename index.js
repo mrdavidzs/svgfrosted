@@ -9,6 +9,11 @@ function getProxyModeTag() {
 	}
 }
 
+function getProxyModeTagForMode(mode) {
+	var normalized = String(mode || "").trim().toLowerCase();
+	return normalized === "ultraviolet" || normalized === "uv" ? "uv" : "sj";
+}
+
 function hasActiveProxiedTab() {
 	try {
 		var activeTab = Array.isArray(tabs) ? tabs.find((tab) => tab.id === activeTabId) : null;
@@ -28,6 +33,47 @@ function hasActiveProxiedTab() {
 
 function getFrostedPrefix() {
 	return hasActiveProxiedTab() ? `[frosted (${getProxyModeTag()})]` : "[frosted]";
+}
+
+function getFrostedPrefixForMode(mode, isProxied = true) {
+	return isProxied ? `[frosted (${getProxyModeTagForMode(mode)})]` : "[frosted]";
+}
+
+function logFrostedBox(message, mode, isProxied = true) {
+	console.log(
+		`%c${getFrostedPrefixForMode(mode, isProxied)}%c ${message}`,
+		[
+			"background-color: #c8f3ff",
+			"color: #0b6e99",
+			"padding: 4px 6px",
+			"border-radius: 4px",
+			"font-weight: bold",
+			"font-family: monospace",
+			"font-size: 0.9em",
+		].join("; "),
+		"color: inherit;"
+	);
+}
+
+function setLoadingBannerMessage(mode) {
+	if (!loadingBanner) return;
+	var popupTitle = loadingBanner.querySelector(".loading-popup-title");
+	if (!popupTitle) return;
+	var normalized = String(mode || "").trim().toLowerCase();
+	if (normalized === "scramjet" || normalized === "sj") {
+		popupTitle.textContent = "[frosted (sj)] loaded page";
+		return;
+	}
+	if (normalized === "ultraviolet" || normalized === "uv") {
+		popupTitle.textContent = "[frosted (uv)] loaded webpage";
+		return;
+	}
+	popupTitle.textContent = "Loading webpage...";
+}
+
+function shouldUseAppProxyLogs(mode) {
+	var normalized = String(mode || "").trim().toLowerCase();
+	return normalized === "ultraviolet" || normalized === "uv";
 }
 
 "use strict";
@@ -303,6 +349,7 @@ var nextTabId = 1;
 var transportReady = false;
 var tabFrames = new Map();
 var frameReadyByTab = new Set();
+var frameLoadLoggedByTab = new Set();
 var frameEarlyReadyPollByTab = new Map();
 var frameLoadTimeoutIdByTab = new Map();
 var suppressNextFrameNavSyncByTab = new Set();
@@ -394,15 +441,34 @@ async function ensureUvRuntime() {
 	return uvRuntimePromise;
 }
 
+function createBareMuxConnection(bareMuxModule = globalThis.BareMux) {
+	var BareMuxConnectionCtor = bareMuxModule?.BareMuxConnection || globalThis.BareMuxConnection;
+	if (typeof BareMuxConnectionCtor !== "function") {
+		throw new Error("BareMuxConnection is unavailable.");
+	}
+	return new BareMuxConnectionCtor(`${appBasePath}baremux/worker.js`);
+}
+
+function isRecoverableBareMuxError(error) {
+	var message = String(error?.message || error || "").toLowerCase();
+	return (
+		message.includes("invalid messageport") ||
+		message.includes("all clients returned an invalid messageport") ||
+		message.includes("failed to get a ping response") ||
+		message.includes("unable to get a channel to the sharedworker")
+	);
+}
+
 async function initializeProxyRuntime() {
+	if (getProxyMode() === "ultraviolet") {
+		await ensureUvRuntime();
+	}
 	if (scramjet && connection) return { scramjet, connection };
 	if (runtimeInitPromise) return runtimeInitPromise;
 
 	runtimeInitPromise = (async () => {
 		var bareMuxModule = await ensureBareMuxGlobal();
-		if (getProxyMode() === "ultraviolet") {
-			await ensureUvRuntime();
-		}
+		connection = createBareMuxConnection(bareMuxModule);
 		await registerSW();
 		var loadController =
 			typeof window.$scramjetLoadController === "function" ? window.$scramjetLoadController : $scramjetLoadController;
@@ -429,7 +495,6 @@ async function initializeProxyRuntime() {
 			scramjet = createScramjet();
 			await scramjet.init();
 		}
-		connection = new bareMuxModule.BareMuxConnection(`${appBasePath}baremux/worker.js`);
 		return { scramjet, connection };
 	})().catch((error) => {
 		runtimeInitPromise = null;
@@ -8123,6 +8188,7 @@ function setActiveTab(id, keepView) {
 			showFrameForTab(id);
 		} else {
 			showBlank();
+			setLoadingBannerMessage(tabFrames.get(id)?.element?.dataset?.proxyMode || getProxyMode());
 			showLoading(true);
 		}
 		addressInput.value = tab.url;
@@ -8702,23 +8768,35 @@ async function loadUrl(url, pushHistory = true) {
 		return;
 	}
 
+	setLoadingBannerMessage(getProxyMode());
 	showLoading(true);
 
 	try {
 		await ensureTransport();
 		var frame = ensureTabFrame(tab.id);
+		var frameProxyMode = frame.element?.dataset?.proxyMode || getProxyMode();
 		if (!String(url || "").trim()) throw new Error("Invalid Scramjet target URL.");
 		frameReadyByTab.delete(tab.id);
+		frameLoadLoggedByTab.delete(tab.id);
 		var pendingTimeout = frameLoadTimeoutIdByTab.get(tab.id);
 		if (pendingTimeout) clearTimeout(pendingTimeout);
 		frameLoadTimeoutIdByTab.set(
 			tab.id,
 			setTimeout(() => {
-				if (tab.id === activeTabId) showLoading(false);
+				if (tab.id === activeTabId) {
+					showLoading(false);
+					var activeFrame = tabFrames.get(tab.id);
+					if (activeFrame?.element) {
+						showFrameForTab(tab.id);
+					}
+				}
 				frameLoadTimeoutIdByTab.delete(tab.id);
 			}, 12000)
 		);
 		suppressNextFrameNavSyncByTab.add(tab.id);
+		if (shouldUseAppProxyLogs(frameProxyMode)) {
+			logFrostedBox(`navigated to ${url}`, frameProxyMode);
+		}
 		frame.go(url);
 		if (frame.element?.dataset?.proxyMode === "scramjet") {
 			startScramjetEarlyReadyPoll(tab.id, frame.element);
@@ -8749,6 +8827,10 @@ function startScramjetEarlyReadyPoll(tabId, frameElement) {
 				if (tabId === activeTabId) {
 					showFrameForTab(tabId);
 					showLoading(false);
+				}
+				if (shouldUseAppProxyLogs(frameElement?.dataset?.proxyMode) && !frameLoadLoggedByTab.has(tabId)) {
+					frameLoadLoggedByTab.add(tabId);
+					logFrostedBox("loaded webpage ✅", frameElement?.dataset?.proxyMode);
 				}
 			}
 		} catch {
@@ -8797,6 +8879,10 @@ function ensureTabFrame(tabId) {
 		if (tabId === activeTabId) {
 			showFrameForTab(tabId);
 			showLoading(false);
+		}
+		if (shouldUseAppProxyLogs(created.frame?.dataset?.proxyMode) && !frameLoadLoggedByTab.has(tabId)) {
+			frameLoadLoggedByTab.add(tabId);
+			logFrostedBox("loaded webpage ✅", created.frame?.dataset?.proxyMode);
 		}
 		syncTabUrlFromFrame(tabId, created.frame);
 		try {
@@ -9209,7 +9295,13 @@ async function ensureTransport() {
 					: await probeWispEndpoint(wispUrl);
 				if (!probeCache.has(wispUrl)) probeCache.set(wispUrl, isReachable);
 				if (!isReachable) continue;
-				await connection.setTransport(transportLoader.modulePath, transportLoader.argsForWisp(wispUrl));
+				try {
+					await connection.setTransport(transportLoader.modulePath, transportLoader.argsForWisp(wispUrl));
+				} catch (error) {
+					if (!isRecoverableBareMuxError(error)) throw error;
+					connection = createBareMuxConnection();
+					await connection.setTransport(transportLoader.modulePath, transportLoader.argsForWisp(wispUrl));
+				}
 				transportReady = true;
 				return;
 			} catch (error) {
@@ -11258,4 +11350,4 @@ setTimeout(hideInitialLoadingPopup, 1200);
 
 
 
-// npm pleas give me my account back :heartbroken:
+// gooncoded :heartbroken:

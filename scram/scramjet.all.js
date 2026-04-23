@@ -269,8 +269,7 @@
                         try {
                             e.opener && n.pX in e.opener && (this.box = e.opener[n.pX].box)
                         } catch {}
-                        this.box || (f.warn("Creating SingletonBox"),
-                        this.box = new h.SingletonBox(this))
+                        this.box || (this.box = new h.SingletonBox(this))
                     } else
                         this.box = new h.SingletonBox(this);
                     this.box.registerClient(this, e),
@@ -1404,7 +1403,7 @@
             function g(e) {
                 if ((0,
                 n.Nk)(e),
-                l.log("initializing scramjet client"),
+                l.log("loaded page"),
                 !(i.pX in globalThis)) {
                     (0,
                     n.Ec)();
@@ -3148,7 +3147,6 @@
                 }
                 go(e) {
                     e instanceof URL && (e = e.toString()),
-                    i.log("navigated to", e),
                     this.frame.src = this.controller.encodeUrl(e)
                 }
                 back() {
@@ -3209,29 +3207,21 @@
                     this.print(e, i, t, ...r)
                 },
                 print(e, t, r, ...i) {
-                    (n[e] || n.log)(`%c${t}%c ${r}`, `
-  	background-color: ${{
-                        log: "#000",
-                        warn: "#f80",
-                        error: "#f00",
-                        debug: "transparent"
-                    }[e]};
-  	color: ${{
-                        log: "#fff",
-                        warn: "#fff",
-                        error: "#fff",
-                        debug: "gray"
-                    }[e]};
-  	padding: ${{
-                        log: 2,
-                        warn: 4,
-                        error: 4,
-                        debug: 0
-                    }[e]}px;
+                    let a = "[frosted]";
+                    try {
+                        let e = String(globalThis.location?.pathname || "")
+                          , t = e.includes("/uv/service/") ? "uv" : e.includes("/scramjet/") ? "sj" : "";
+                        t && (a = `[frosted (${t})]`)
+                    } catch {}
+                    (n[e] || n.log)(`%c${a}%c ${r}`, `
+  	background-color: #c8f3ff;
+  	color: #0b6e99;
+  	padding: 4px 6px;
+  	border-radius: 4px;
   	font-weight: bold;
   	font-family: monospace;
   	font-size: 0.9em;
-  `, `${"debug" === e ? "color: gray" : ""}`, ...i)
+  `, `color: inherit;`, ...i)
                 },
                 log: function(e, ...t) {
                     this.fmt("log", e, ...t)
@@ -4670,7 +4660,11 @@ self.WASM = '${r}';`,
                                 l.P2)("$scramjet", 1);
                                 await t.put("cookies", JSON.parse(this.cookieStore.dump()), "cookies")
                             }
-                            "loadConfig" === e.scramjet$type && (this.config = e.config)
+                            "loadConfig" === e.scramjet$type && (this.config = e.config,
+                            this.config && ((0,
+                            c.Nk)(this.config),
+                            await (0,
+                            s.n$)()))
                         }
                     }
                     )
