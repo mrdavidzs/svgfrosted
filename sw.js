@@ -1,12 +1,10 @@
 importScripts("./scram/scramjet.all.js?v=4");
-importScripts("./uv/uv.bundle.js?v=4");
-importScripts("./uv/uv.config.js?v=4");
-importScripts("./uv/uv.sw.js?v=4");
 
 // trying to hard block the new adblock.turtlecute.org scripts (fakeads)
 const { ScramjetServiceWorker } = $scramjetLoadWorker();
 const scramjet = new ScramjetServiceWorker();
-const uvServiceWorker = new UVServiceWorker();
+let uvServiceWorker = null;
+let uvRuntimeLoadError = null;
 
 const hardBlockedAdKeywords = [
 	"adblock.turtlecute.org/js/pagead.js",
@@ -266,6 +264,23 @@ async function loadScramjetConfigWithRecovery() {
 	}
 }
 
+function ensureUvRuntime() {
+	if (uvServiceWorker) {
+		return uvServiceWorker;
+	}
+	if (uvRuntimeLoadError) {
+		throw uvRuntimeLoadError;
+	}
+	try {
+		importScripts("./uv/uv.bundle.js?v=4", "./uv/uv.config.js?v=4", "./uv/uv.sw.js?v=4");
+		uvServiceWorker = new UVServiceWorker();
+		return uvServiceWorker;
+	} catch (error) {
+		uvRuntimeLoadError = error;
+		throw error;
+	}
+}
+
 async function handleRequest(event) {
 	if (isHardBlockedAdRequest(event.request)) {
 		return new Response("Blocked by Frosted adblockdY'-", {
@@ -279,7 +294,19 @@ async function handleRequest(event) {
 	}
 
 	if (isUvRequest(event.request.url)) {
-		return uvServiceWorker.fetch(event);
+		try {
+			return ensureUvRuntime().fetch(event);
+		} catch (error) {
+			console.error("[frosted-sw] uv fetch failed:", error);
+			return new Response("Ultraviolet failed to load this page.", {
+				status: 502,
+				statusText: "Ultraviolet Error",
+				headers: {
+					"content-type": "text/plain; charset=utf-8",
+					"cache-control": "no-store",
+				},
+			});
+		}
 	}
 
 	if (isScramjetRequest(event.request.url) || isScramjetWasmRequest(event.request.url)) {
