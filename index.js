@@ -338,7 +338,9 @@ var scramjetPrefix = (() => {
 	return `${appBasePath}scramjet/`.replace(/\/{2,}/g, "/");
 })();
 
-var uvPrefix = "/uv/service/";
+var uvPrefix = (() => {
+	return `${appBasePath}uv/service/`.replace(/\/{2,}/g, "/");
+})();
 var scramjet = null;
 var connection = null;
 var runtimeInitPromise = null;
@@ -8583,11 +8585,8 @@ function fromUltravioletProxyUrl(rawUrl) {
 	if (!target || !window.__uv$config?.decodeUrl) return "";
 	try {
 		var parsed = new URL(target, window.location.href);
-		var marker = uvPrefix;
-		if (!parsed.pathname.startsWith(marker)) {
-			if (!parsed.pathname.startsWith("/uv/service/")) return target;
-			marker = "/uv/service/";
-		}
+		var marker = window.__uv$config?.prefix || uvPrefix;
+		if (!parsed.pathname.startsWith(marker)) return target;
 		var encoded = parsed.pathname.slice(marker.length);
 		if (!encoded) return "";
 		return window.__uv$config.decodeUrl(encoded);
@@ -8852,7 +8851,8 @@ function ensureTabFrame(tabId) {
 					if (!window.__uv$config?.encodeUrl) {
 						throw new Error("Ultraviolet runtime is not ready.");
 					}
-					created.frame.src = window.location.origin + uvPrefix + window.__uv$config.encodeUrl(url);
+					var prefix = window.__uv$config?.prefix || uvPrefix;
+					created.frame.src = window.location.origin + prefix + window.__uv$config.encodeUrl(url);
 				},
 			}
 			: scramjet.createFrame();
