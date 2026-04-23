@@ -1,6 +1,6 @@
-importScripts('uv.bundle.js');
-importScripts('uv.config.js');
-importScripts(__uv$config.sw || 'uv.sw.js');
+importScripts('uv.bundle.js?v=5');
+importScripts('uv.config.js?v=5');
+importScripts(__uv$config.sw || 'uv.sw.js?v=5');
 
 const uvServiceWorker = new UVServiceWorker();
 
@@ -124,7 +124,7 @@ async function serve404() {
             <button onclick="window.top.location.reload()">Refresh</button>
         </div>
     </main>
-    <div class="footer">frosted</div>
+    <div class="footer">FROSTED</div>
     <script>
         if (window.parent && window.parent !== window) {
             window.parent.postMessage({ type: 'uv-error' }, '*');

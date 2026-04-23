@@ -1,4 +1,4 @@
-﻿console.log(`${getFrostedPrefix()}: loaded index.js`)
+﻿﻿console.log(`${getFrostedPrefix()}: loaded index.js`)
 
 function getProxyModeTag() {
 	try {
@@ -360,7 +360,7 @@ var gamesCatalog = [];
 
 async function ensureBareMuxGlobal() {
 	if (globalThis.BareMux?.BareMuxConnection) return globalThis.BareMux;
-	await import(`${appBasePath}baremux/index.js?v=3`);
+	await import(`${appBasePath}baremux/index.js?v=5`);
 	if (!globalThis.BareMux?.BareMuxConnection) {
 		throw new Error("BareMux failed to load.");
 	}

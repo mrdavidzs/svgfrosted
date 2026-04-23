@@ -1,4 +1,4 @@
-importScripts("./scram/scramjet.all.js?v=4");
+importScripts("./scram/scramjet.all.js?v=5");
 
 // trying to hard block the new adblock.turtlecute.org scripts (fakeads)
 const { ScramjetServiceWorker } = $scramjetLoadWorker();
@@ -272,7 +272,7 @@ function ensureUvRuntime() {
 		throw uvRuntimeLoadError;
 	}
 	try {
-		importScripts("./uv/uv.bundle.js?v=4", "./uv/uv.config.js?v=4", "./uv/uv.sw.js?v=4");
+		importScripts("./uv/uv.bundle.js?v=5", "./uv/uv.config.js?v=5", "./uv/uv.sw.js?v=5");
 		uvServiceWorker = new UVServiceWorker();
 		return uvServiceWorker;
 	} catch (error) {
